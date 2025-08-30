@@ -26,6 +26,25 @@ private:
     std::mutex FallbackMutex;
 
 public:
+    bool try_lock()
+    {
+        if (!Locked.test_and_set(std::memory_order_acquire)) {
+            bUsedFallbackMutex = false;
+            return true;
+        }
+
+        if (FallbackMutex.try_lock()) {
+            if (!Locked.test_and_set(std::memory_order_acquire)) {
+                bUsedFallbackMutex = true;
+                return true;
+            } else {
+                FallbackMutex.unlock();
+            }
+        }
+
+        return false;
+    }
+
     void lock()
     {
         for (std::size_t i = 0; i < SpinCount; ++i) {
